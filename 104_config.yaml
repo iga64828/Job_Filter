@@ -1,0 +1,34 @@
+
+# 爬蟲設定(driver位置等)
+firefox_binary: /snap/firefox/8054/usr/lib/firefox/firefox
+geckodriver_path: /snap/bin/geckodriver
+headless: true
+window_width: 1400
+window_height: 2200
+wait_timeout: 20
+sleep_sec: 2
+
+search:
+  # 關鍵字
+  keyword: 資料工程師 數據工程師 Data Engineer
+  
+  # 地點
+  area: "6001001000,6001002015,6001002014,6001002011,6001002003"
+  
+  #工作類別
+  jobcat: null
+  
+  # 期望待遇
+  jobexp: null
+
+  #學歷
+  edu: null
+  isnew: null
+  order: "15"
+  ro: null
+  
+  #班別
+  sch: "1"
+
+max_pages: 3
+output_csv: 104_jobs.csv
