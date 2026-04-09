@@ -1,0 +1,7 @@
+interface:
+  display_name: "中文自動 Commit"
+  short_description: "先審核檔案與訊息，再用中文 conventional commit 提交"
+  default_prompt: "Use $auto-commit-zh to review the files to commit and propose a Chinese conventional commit message before committing."
+
+policy:
+  allow_implicit_invocation: true

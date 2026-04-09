@@ -1,40 +1,54 @@
-# Conventional Commit
+# 中文 Conventional Commit
 
-Generate and apply a conventional commit message from staged changes.
+在 Git 專案中，先審核要提交的檔案與 commit 訊息，再執行 commit。
 
-## Steps
+## 步驟
 
-1. Run `git diff --staged` to see what's staged. If nothing is staged, tell the user and stop.
+1. 先執行 `bash .claude/skills/auto-commit-zh/scripts/preview_commit.sh` 查看目前變更。
+2. 根據使用者要求，整理出本次建議提交的檔案清單。
+3. 只根據這批檔案的變更內容，產生一則中文 conventional commit 訊息。
+4. 先向使用者展示：
+   - 建議提交檔案
+   - 建議 commit 訊息
+5. 明確等待使用者確認。允許使用者：
+   - 直接提交
+   - 修改訊息
+   - 調整檔案
+   - 取消
+6. 使用者確認後才執行：
+   - `git add -- <files...>`
+   - `git commit -m "<message>"`
 
-2. Analyze the diff and determine:
-   - **type**: one of `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `ci`
-   - **scope** (optional): the module or area affected, in parentheses — e.g. `feat(scraper):`
-   - **breaking change**: if the change breaks backwards compatibility, append `!` after type/scope and add a `BREAKING CHANGE:` footer
-   - **subject**: short imperative description, lowercase, no period
+## 訊息格式
 
-3. Format the message:
-   ```
-   <type>[(<scope>)][!]: <subject>
+```text
+<type>[(<scope>)][!]: <中文摘要>
+```
 
-   [optional body]
+範例：
 
-   [BREAKING CHANGE: <description>]
-   ```
+```text
+feat(scraper): 支援以中文地區名稱轉換 104 搜尋代碼
+fix(config): 修正搜尋參數載入方式
+chore(skill): 新增可審核的中文自動 commit 技能
+```
 
-4. Show the proposed commit message to the user and ask: **"Commit with this message? (y/n/edit)"**
-   - `y` — run `git commit -m "<message>"`
-   - `n` — abort
-   - `edit` — ask the user to provide the final message, then commit with it
+## 類型
 
-## Type guide
+- `feat`: 新功能
+- `fix`: 修正 bug
+- `chore`: 維護、設定、腳本、非功能性調整
+- `docs`: 文件變更
+- `refactor`: 重構但不改行為
+- `test`: 測試新增或修正
+- `style`: 純格式調整
+- `ci`: CI/CD 相關
 
-| Type | When to use |
-|------|-------------|
-| `feat` | New feature or capability |
-| `fix` | Bug fix |
-| `chore` | Maintenance, dependencies, config |
-| `docs` | Documentation only |
-| `refactor` | Code restructure, no behavior change |
-| `test` | Adding or fixing tests |
-| `style` | Formatting, whitespace, no logic change |
-| `ci` | CI/CD pipeline changes |
+## 規則
+
+- commit 訊息主旨必須是中文
+- 主旨要精簡且具體
+- 不要加句號
+- 除非是破壞性變更，否則不要加 `!`
+- 使用者要求可審核時，不能直接 commit
+- 不要把無關檔案一起提交

@@ -1,19 +1,20 @@
 import argparse
-import time
+import json
 from pathlib import Path
 from pprint import pprint
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 import pandas as pd
+import requests
 import yaml
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent / "104_config.yaml"
+DEFAULT_AREA_CODES_PATH = Path(__file__).parent / "104_area_codes.json"
+DEFAULT_HEADERS = {
+    "Referer": "https://www.104.com.tw/jobs/search/",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
+}
+DEFAULT_URL = "https://www.104.com.tw/jobs/search/api/jobs"
 
 
 def load_config(path: str | Path) -> dict:
@@ -22,113 +23,155 @@ def load_config(path: str | Path) -> dict:
         return yaml.safe_load(f)
 
 
-def build_search_url(page: int, search_config: dict) -> str:
-    """依設定組出 104 搜尋頁 URL。"""
-    params = {
-        "keyword": search_config.get("keyword", ""),
-        "page": page,
+def load_area_code_map(path: str | Path) -> dict[str, str]:
+    """讀取地區中文名稱與代碼對照表。"""
+    with open(path, encoding="utf-8") as f:
+        raw_map = json.load(f) or {}
+    return {str(key): str(value) for key, value in raw_map.items()}
+
+
+def resolve_area_codes(
+    area_names: list[str], area_code_map: dict[str, str], custom_map: dict | None = None
+) -> str:
+    """將中文地區名稱轉成 104 area 代碼字串。"""
+    area_map = area_code_map.copy()
+    if custom_map:
+        area_map.update({str(key): str(value) for key, value in custom_map.items()})
+
+    resolved_codes = []
+    for raw_name in area_names:
+        name = str(raw_name).strip()
+        if not name:
+            continue
+
+        code = area_map.get(name)
+        if code is None:
+            suffix_matches = sorted(
+                {
+                    area_code
+                    for area_name, area_code in area_map.items()
+                    if area_name.endswith(name)
+                }
+            )
+            if len(suffix_matches) == 1:
+                code = suffix_matches[0]
+
+        if code is None:
+            raise ValueError(f"找不到地區代碼: {name}")
+
+        resolved_codes.append(code)
+
+    return ",".join(dict.fromkeys(resolved_codes))
+
+
+def build_request_parts(config: dict, page: int | None = None) -> tuple[str, dict]:
+    """從 YAML 組出 API URL 與 query params。"""
+    request_config = config.get("request", {})
+    raw_url = request_config.get("url", DEFAULT_URL)
+
+    parsed = urlparse(raw_url)
+    base_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}" if parsed.scheme else raw_url
+
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    raw_params = request_config.get("params", {}).copy()
+    area_names = raw_params.pop("area_names", None)
+    area_map = request_config.get("area_map", {})
+    area_codes_path = request_config.get("area_codes_path", DEFAULT_AREA_CODES_PATH)
+    area_code_map = load_area_code_map(area_codes_path)
+
+    params.update(
+        {str(key): str(value) for key, value in raw_params.items() if value not in (None, "")}
+    )
+
+    if area_names:
+        if isinstance(area_names, str):
+            area_names = [name.strip() for name in area_names.split(",")]
+        params["area"] = resolve_area_codes(
+            area_names, area_code_map=area_code_map, custom_map=area_map
+        )
+
+    if page is not None:
+        params["page"] = str(page)
+
+    return base_url or DEFAULT_URL, params
+
+
+def build_debug_url(url: str, params: dict) -> str:
+    """輸出目前實際請求 URL 供除錯。"""
+    return f"{url}?{urlencode(params, safe=', ')}"
+
+
+def fetch_jobs(url: str, headers: dict, params: dict, timeout: int) -> list[dict]:
+    """呼叫 104 搜尋 API 並回傳職缺陣列。"""
+    response = requests.get(url, headers=headers, params=params, timeout=timeout)
+    response.raise_for_status()
+
+    payload = response.json()
+    data = payload.get("data", {})
+    jobs = data.get("list") or []
+
+    if not isinstance(jobs, list):
+        raise ValueError("104 API 回傳格式異常，data.list 不是陣列")
+
+    return jobs
+
+
+def normalize_job(raw_job: dict, params: dict) -> dict:
+    """整理 API 回傳欄位，輸出一致的 CSV 結構。"""
+    job_name = raw_job.get("jobName") or raw_job.get("jobNameSnippet") or ""
+    job_link = raw_job.get("link", {}).get("job") or ""
+    company_name = raw_job.get("custName") or ""
+    company_link = raw_job.get("link", {}).get("cust") or ""
+    area_desc = raw_job.get("jobAddrNoDesc") or raw_job.get("jobAddrNoDescSnippet") or ""
+    salary_desc = raw_job.get("salaryDesc") or ""
+    employment = raw_job.get("periodDesc") or ""
+    experience = raw_job.get("jobExpDesc") or ""
+    education = raw_job.get("eduDesc") or ""
+
+    return {
+        "title": job_name,
+        "link": job_link,
+        "company_name": company_name,
+        "company_link": company_link,
+        "area": area_desc,
+        "salary": salary_desc,
+        "employment_type": employment,
+        "experience": experience,
+        "education": education,
+        "keyword": params.get("keyword", ""),
+        "page": params.get("page", ""),
     }
 
-    # 只帶入有值的可選欄位，避免產生多餘 query string 參數
-    optional_fields = ["area", "jobcat", "jobexp", "edu", "isnew", "order", "ro"]
 
-    for field in optional_fields:
-        value = search_config.get(field)
-        if value not in (None, "", []):
-            params[field] = value
+def crawl_104_jobs(config: dict) -> list[dict]:
+    """依 YAML 設定抓取多頁職缺。"""
+    timeout = int(config.get("timeout", 30))
+    headers = DEFAULT_HEADERS.copy()
 
-    return "https://www.104.com.tw/jobs/search/?" + urlencode(params)
-
-
-def create_driver(config: dict) -> webdriver.Firefox:
-    """建立 Firefox WebDriver（可切換 headless）。"""
-    options = Options()
-    if config.get("headless", True):
-        options.add_argument("-headless")
-
-    options.binary_location = config["firefox_binary"]
-
-    service = Service(
-        executable_path=config["geckodriver_path"],
-        log_output="geckodriver.log",
-    )
-
-    driver = webdriver.Firefox(service=service, options=options)
-    driver.set_window_size(
-        config.get("window_width", 1400),
-        config.get("window_height", 2200),
-    )
-    return driver
-
-
-def crawl_104_links(config: dict) -> list[dict]:
-    """抓取多頁職缺連結，回傳去重後的職缺清單。"""
-    driver = create_driver(config)
-    wait = WebDriverWait(driver, config.get("wait_timeout", 20))
+    request_config = config.get("request", {})
+    start_page = int(request_config.get("start_page", 1))
+    max_pages = int(config.get("max_pages", 1))
 
     jobs = []
-
-    try:
-        # 依 max_pages 逐頁抓取搜尋結果
-        for page in range(1, config.get("max_pages", 1) + 1):
-            url = build_search_url(page=page, search_config=config["search"])
-            print(f"抓取第 {page} 頁: {url}")
-
-            driver.get(url)
-
-            # 等待至少一批職缺連結出現，降低因尚未載入完成而漏抓
-            wait.until(
-                EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'a[href*="/job/"]')
-                )
-            )
-
-            # 額外緩衝，讓動態內容有時間補齊
-            time.sleep(config.get("sleep_sec", 2))
-
-            links = driver.find_elements(By.CSS_SELECTOR, 'a[href*="/job/"]')
-            print(f"第 {page} 頁找到 {len(links)} 個候選連結")
-
-            # 單頁內先去重，避免重複 append
-            seen_in_page = set()
-
-            for a in links:
-                try:
-                    title = a.text.strip()
-                    href = (a.get_attribute("href") or "").strip()
-
-                    if not title:
-                        continue
-                    if "/job/" not in href:
-                        continue
-                    if href in seen_in_page:
-                        continue
-
-                    seen_in_page.add(href)
-
-                    jobs.append(
-                        {
-                            "title": title,
-                            "link": href,
-                            "page": page,
-                            "keyword": config["search"].get("keyword", ""),
-                            "area": config["search"].get("area", ""),
-                        }
-                    )
-                except Exception:
-                    # 個別節點解析失敗時跳過，不中斷整頁抓取
-                    continue
-
-    finally:
-        # 無論是否發生錯誤都要關閉瀏覽器
-        driver.quit()
-
-    # 全部頁面再按 link 做一次去重，保留最後一次出現資料
     dedup = {}
-    for job in jobs:
-        dedup[job["link"]] = job
 
-    return list(dedup.values())
+    for offset in range(max_pages):
+        current_page = start_page + offset
+        url, params = build_request_parts(config, page=current_page)
+        print(f"抓取第 {current_page} 頁: {build_debug_url(url, params)}")
+
+        raw_jobs = fetch_jobs(url=url, headers=headers, params=params, timeout=timeout)
+        print(f"第 {current_page} 頁 API 回傳 {len(raw_jobs)} 筆")
+
+        for raw_job in raw_jobs:
+            normalized = normalize_job(raw_job, params)
+            if not normalized["title"] or not normalized["link"]:
+                continue
+
+            dedup[normalized["link"]] = normalized
+
+    jobs.extend(dedup.values())
+    return jobs
 
 
 def main():
@@ -141,7 +184,7 @@ def main():
 
     config = load_config(args.config)
 
-    jobs = crawl_104_links(config)
+    jobs = crawl_104_jobs(config)
     df = pd.DataFrame(jobs)
     pprint(df)
     df.to_csv(config["output_csv"], index=False, encoding="utf-8-sig")
