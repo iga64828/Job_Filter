@@ -1,1 +1,5 @@
 *.ipynb
+*.csv
+*.log
+*.pyc
+../_pycache_/
