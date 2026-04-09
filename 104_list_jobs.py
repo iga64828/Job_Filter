@@ -70,7 +70,9 @@ def build_request_parts(config: dict, page: int | None = None) -> tuple[str, dic
     raw_url = request_config.get("url", DEFAULT_URL)
 
     parsed = urlparse(raw_url)
-    base_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}" if parsed.scheme else raw_url
+    base_url = (
+        f"{parsed.scheme}://{parsed.netloc}{parsed.path}" if parsed.scheme else raw_url
+    )
 
     params = dict(parse_qsl(parsed.query, keep_blank_values=True))
     raw_params = request_config.get("params", {}).copy()
@@ -80,7 +82,11 @@ def build_request_parts(config: dict, page: int | None = None) -> tuple[str, dic
     area_code_map = load_area_code_map(area_codes_path)
 
     params.update(
-        {str(key): str(value) for key, value in raw_params.items() if value not in (None, "")}
+        {
+            str(key): str(value)
+            for key, value in raw_params.items()
+            if value not in (None, "")
+        }
     )
 
     if area_names:
@@ -107,8 +113,11 @@ def fetch_jobs(url: str, headers: dict, params: dict, timeout: int) -> list[dict
     response.raise_for_status()
 
     payload = response.json()
-    data = payload.get("data", {})
-    jobs = data.get("list") or []
+    data = payload.get("data")
+    if isinstance(data, list):
+        jobs = data
+    else:
+        jobs = []
 
     if not isinstance(jobs, list):
         raise ValueError("104 API 回傳格式異常，data.list 不是陣列")
@@ -116,30 +125,29 @@ def fetch_jobs(url: str, headers: dict, params: dict, timeout: int) -> list[dict
     return jobs
 
 
-def normalize_job(raw_job: dict, params: dict) -> dict:
+def format_address(item: dict) -> str:
+    """將 104 職缺地址欄位組成單一字串。"""
+    parts = [
+        str(
+            item.get("jobAddrNoDesc") or item.get("jobAddrNoDescSnippet") or ""
+        ).strip(),
+        str(item.get("jobAddress") or item.get("jobAddressSnippet") or "").strip(),
+    ]
+    return "".join(part for part in parts if part)
+
+
+def normalize_job(raw_job: dict) -> dict:
     """整理 API 回傳欄位，輸出一致的 CSV 結構。"""
     job_name = raw_job.get("jobName") or raw_job.get("jobNameSnippet") or ""
     job_link = raw_job.get("link", {}).get("job") or ""
     company_name = raw_job.get("custName") or ""
-    company_link = raw_job.get("link", {}).get("cust") or ""
-    area_desc = raw_job.get("jobAddrNoDesc") or raw_job.get("jobAddrNoDescSnippet") or ""
-    salary_desc = raw_job.get("salaryDesc") or ""
-    employment = raw_job.get("periodDesc") or ""
-    experience = raw_job.get("jobExpDesc") or ""
-    education = raw_job.get("eduDesc") or ""
+    address = format_address(raw_job)
 
     return {
-        "title": job_name,
-        "link": job_link,
+        "job_name": job_name,
+        "job_link": job_link,
         "company_name": company_name,
-        "company_link": company_link,
-        "area": area_desc,
-        "salary": salary_desc,
-        "employment_type": employment,
-        "experience": experience,
-        "education": education,
-        "keyword": params.get("keyword", ""),
-        "page": params.get("page", ""),
+        "address": address,
     }
 
 
@@ -164,11 +172,11 @@ def crawl_104_jobs(config: dict) -> list[dict]:
         print(f"第 {current_page} 頁 API 回傳 {len(raw_jobs)} 筆")
 
         for raw_job in raw_jobs:
-            normalized = normalize_job(raw_job, params)
-            if not normalized["title"] or not normalized["link"]:
+            normalized = normalize_job(raw_job)
+            if not normalized["job_name"] or not normalized["job_link"]:
                 continue
 
-            dedup[normalized["link"]] = normalized
+            dedup[normalized["job_link"]] = normalized
 
     jobs.extend(dedup.values())
     return jobs

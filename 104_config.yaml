@@ -1,7 +1,7 @@
 request:
   url: "https://www.104.com.tw/jobs/search/api/jobs"
   area_codes_path: "104_area_codes.json"
-  start_page: 38
+  start_page: 1
   params:
     area_names:
       - "台北市"
@@ -13,6 +13,7 @@ request:
     keyword: "資料工程師 數據工程師 Data Engineer"
     mode: "s"
     order: "15"
+    ro: "1"
     pagesize: "20"
     s9: "1"
     searchJobs: "1"
