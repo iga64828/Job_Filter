@@ -58,6 +58,20 @@ def get_detail_value(data: Any, key: str) -> str:
     return clean_text(find_key_recursive(data, key))
 
 
+def build_job_description(data: Any) -> str:
+    """合併職缺描述與 condition.other，兩段間以換行分隔。"""
+    description = get_detail_value(data, "jobDescription")
+    condition_other = ""
+
+    if isinstance(data, dict):
+        condition = data.get("condition")
+        if isinstance(condition, dict):
+            condition_other = clean_text(condition.get("other"))
+
+    parts = [part for part in (description, condition_other) if part]
+    return "\n".join(parts)
+
+
 def normalize_job_detail(payload: Any) -> dict[str, str]:
     """將 104 原始 JSON payload 整理成固定輸出欄位。"""
     data = payload.get("data", payload) if isinstance(payload, dict) else payload
@@ -71,7 +85,7 @@ def normalize_job_detail(payload: Any) -> dict[str, str]:
         "custName": get_detail_value(data, "custName"),
         "workExp": get_detail_value(data, "workExp"),
         "jobAddress": f"{address_region}{address_detail}",
-        "jobDescription": get_detail_value(data, "jobDescription"),
+        "jobDescription": build_job_description(data),
         "welfare": get_detail_value(data, "welfare"),
     }
 
