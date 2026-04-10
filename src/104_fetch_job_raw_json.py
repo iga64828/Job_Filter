@@ -7,8 +7,12 @@ from pathlib import Path
 
 import requests
 
-DEFAULT_INPUT_CSV = Path(__file__).parent / "104_jobs.csv"
-DEFAULT_OUTPUT_DIR = Path(__file__).parent / "mock_object_storage"
+PROJECT_ROOT = Path(__file__).resolve().parent
+if PROJECT_ROOT.name == "src":
+    PROJECT_ROOT = PROJECT_ROOT.parent
+
+DEFAULT_INPUT_CSV = PROJECT_ROOT / "104_jobs.csv"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "mock_object_storage"
 DEFAULT_TIMEOUT = 20
 DEFAULT_SLEEP_SECONDS = 0.2
 JOB_URL_PATTERN = re.compile(r"https?://www\.104\.com\.tw/job/([^/?#]+)")
