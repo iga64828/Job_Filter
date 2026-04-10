@@ -8,17 +8,21 @@ import pandas as pd
 import requests
 import yaml
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-if PROJECT_ROOT.name == "src":
-    PROJECT_ROOT = PROJECT_ROOT.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_CONFIG_PATH = PROJECT_ROOT / "104_config.yaml"
-DEFAULT_AREA_CODES_PATH = PROJECT_ROOT / "104_area_codes.json"
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "104.yaml"
+DEFAULT_AREA_CODES_PATH = PROJECT_ROOT / "data" / "reference" / "104_area_codes.json"
 DEFAULT_HEADERS = {
     "Referer": "https://www.104.com.tw/jobs/search/",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
 }
 DEFAULT_URL = "https://www.104.com.tw/jobs/search/api/jobs"
+
+
+def resolve_project_path(path: str | Path) -> Path:
+    """將相對路徑解到專案根目錄。"""
+    candidate = Path(path)
+    return candidate if candidate.is_absolute() else PROJECT_ROOT / candidate
 
 
 def load_config(path: str | Path) -> dict:
@@ -82,7 +86,9 @@ def build_request_parts(config: dict, page: int | None = None) -> tuple[str, dic
     raw_params = request_config.get("params", {}).copy()
     area_names = raw_params.pop("area_names", None)
     area_map = request_config.get("area_map", {})
-    area_codes_path = request_config.get("area_codes_path", DEFAULT_AREA_CODES_PATH)
+    area_codes_path = resolve_project_path(
+        request_config.get("area_codes_path", DEFAULT_AREA_CODES_PATH)
+    )
     area_code_map = load_area_code_map(area_codes_path)
 
     params.update(
@@ -194,15 +200,17 @@ def main():
     )
     args = parser.parse_args()
 
-    config = load_config(args.config)
+    config = load_config(resolve_project_path(args.config))
 
     jobs = crawl_104_jobs(config)
     df = pd.DataFrame(jobs)
     pprint(df)
-    df.to_csv(config["output_csv"], index=False, encoding="utf-8-sig")
+    output_path = resolve_project_path(config["output_csv"])
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_path, index=False, encoding="utf-8-sig")
 
     print(df.head())
-    print(f"總共 {len(df)} 筆，已輸出到 {config['output_csv']}")
+    print(f"總共 {len(df)} 筆，已輸出到 {output_path}")
 
 
 if __name__ == "__main__":

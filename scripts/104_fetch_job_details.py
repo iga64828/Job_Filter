@@ -8,12 +8,10 @@ from typing import Any
 
 import requests
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-if PROJECT_ROOT.name == "src":
-    PROJECT_ROOT = PROJECT_ROOT.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_INPUT_CSV = PROJECT_ROOT / "104_jobs.csv"
-DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "104_job_details.csv"
+DEFAULT_INPUT_CSV = PROJECT_ROOT / "data" / "processed" / "104_jobs.csv"
+DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "processed" / "104_job_details.csv"
 DEFAULT_TIMEOUT = 20
 DEFAULT_SLEEP_SECONDS = 0.2
 JOB_URL_PATTERN = re.compile(r"https?://www\.104\.com\.tw/job/([^/?#]+)")
@@ -130,7 +128,7 @@ def write_output_rows(path: str | Path, rows: list[dict[str, str]]) -> None:
 def parse_args() -> argparse.Namespace:
     """解析 CLI 參數。"""
     parser = argparse.ArgumentParser(
-        description="從 src/104_list_jobs.py 產生的 CSV 抓職缺詳細資料並輸出 CSV"
+        description="從 scripts/104_list_jobs.py 產生的 CSV 抓職缺詳細資料並輸出 CSV"
     )
     parser.add_argument("--input-csv", default=DEFAULT_INPUT_CSV)
     parser.add_argument("--output-csv", default=DEFAULT_OUTPUT_CSV)

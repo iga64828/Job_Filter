@@ -7,12 +7,10 @@ from pathlib import Path
 
 import requests
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-if PROJECT_ROOT.name == "src":
-    PROJECT_ROOT = PROJECT_ROOT.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_INPUT_CSV = PROJECT_ROOT / "104_jobs.csv"
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "mock_object_storage"
+DEFAULT_INPUT_CSV = PROJECT_ROOT / "data" / "processed" / "104_jobs.csv"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "raw" / "104"
 DEFAULT_TIMEOUT = 20
 DEFAULT_SLEEP_SECONDS = 0.2
 JOB_URL_PATTERN = re.compile(r"https?://www\.104\.com\.tw/job/([^/?#]+)")
@@ -53,7 +51,7 @@ def save_payload(output_dir: Path, job_id: str, payload: dict | list) -> Path:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="從 104_jobs.csv 逐筆抓職缺原始 JSON 並存到 mock_object_storage 資料夾"
+        description="從 data/processed/104_jobs.csv 逐筆抓職缺原始 JSON 並存到 data/raw/104"
     )
     parser.add_argument("--input-csv", default=DEFAULT_INPUT_CSV)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)

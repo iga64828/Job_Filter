@@ -2,5 +2,5 @@
 *.csv
 *.log
 *.pyc
-../_pycache_/
-mock_object_storage/*
+__pycache__/
+data/raw/

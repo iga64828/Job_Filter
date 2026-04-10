@@ -4,12 +4,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-if PROJECT_ROOT.name == "src":
-    PROJECT_ROOT = PROJECT_ROOT.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_INPUT_DIR = PROJECT_ROOT / "mock_object_storage"
-DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "104_job_details.csv"
+DEFAULT_INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "104"
+DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "processed" / "104_job_details.csv"
 OUTPUT_FIELDS = [
     "appearDate",
     "jobName",
@@ -100,7 +98,7 @@ def write_output_rows(path: str | Path, rows: list[dict[str, str]]) -> None:
 def parse_args() -> argparse.Namespace:
     """解析 CLI 參數。"""
     parser = argparse.ArgumentParser(
-        description="從 mock_object_storage 讀取 104 職缺原始 JSON 並輸出 CSV"
+        description="從 data/raw/104 讀取 104 職缺原始 JSON 並輸出 CSV"
     )
     parser.add_argument("--input-dir", default=DEFAULT_INPUT_DIR)
     parser.add_argument("--output-csv", default=DEFAULT_OUTPUT_CSV)
