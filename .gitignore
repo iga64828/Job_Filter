@@ -3,3 +3,4 @@
 *.log
 *.pyc
 ../_pycache_/
+mock_object_storage/*
