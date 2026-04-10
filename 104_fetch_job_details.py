@@ -13,8 +13,7 @@ DEFAULT_TIMEOUT = 20
 DEFAULT_SLEEP_SECONDS = 0.2
 JOB_URL_PATTERN = re.compile(r"https?://www\.104\.com\.tw/job/([^/?#]+)")
 USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) "
-    "Gecko/20100101 Firefox/133.0"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
 )
 
 
@@ -27,21 +26,25 @@ def extract_job_id(job_link: str) -> str | None:
 
 
 def find_key_recursive(obj, target_key: str):
-    """遞迴搜尋 JSON 中第一個符合 key 的值。"""
+    """在巢狀 dict/list 中，回傳第一個指定 key 的非空值。"""
     # 104 詳情 JSON 常有巢狀結構，且不同職缺節點位置可能不同。
-    # 用遞迴「找第一個非空值」可避免把路徑寫死，降低後續維護成本。
+    # 先檢查最外層，如果沒有該 key，就把該層所有子節點逐一拿去重新跑這個 function
+    # 再一層一層往下找
+    # 可避免把路徑寫死。
     if isinstance(obj, dict):
-        if target_key in obj and obj[target_key] not in (None, ""):
-            return obj[target_key]
-        for value in obj.values():
-            found = find_key_recursive(value, target_key)
-            if found not in (None, ""):
-                return found
+        current_value = obj.get(target_key)
+        if current_value not in (None, ""):
+            return current_value
+        children = obj.values()
     elif isinstance(obj, list):
-        for item in obj:
-            found = find_key_recursive(item, target_key)
-            if found not in (None, ""):
-                return found
+        children = obj
+    else:
+        return None
+
+    for child in children:
+        found_value = find_key_recursive(child, target_key)
+        if found_value not in (None, ""):
+            return found_value
     return None
 
 
@@ -114,13 +117,17 @@ def main():
             detail = fetch_job_detail(job_id, timeout=args.timeout)
             output_rows.append(
                 {
+                    "appearDate": detail["appearDate"],
+                    "jobName": detail["jobName"],
                     "salary": detail["salary"],
+                    "custName": detail["custName"],
+                    "workExp": detail["workExp"],
+                    "jobAddress": detail["addressRegion"] + detail["addressDetail"],
                     "jobDescription": detail["jobDescription"],
                     "welfare": detail["welfare"],
-                    "jobName": detail["jobName"],
                 }
             )
-            print(f"[{idx}] 完成 {job_id}")
+            print(f"[{idx}] 完成 {detail['jobName']}")
         except requests.RequestException as exc:
             print(f"[{idx}] 失敗 {job_id}: {exc}")
         except ValueError as exc:
