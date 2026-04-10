@@ -8,12 +8,8 @@ import pandas as pd
 import requests
 import yaml
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-if PROJECT_ROOT.name == "src":
-    PROJECT_ROOT = PROJECT_ROOT.parent
-
-DEFAULT_CONFIG_PATH = PROJECT_ROOT / "104_config.yaml"
-DEFAULT_AREA_CODES_PATH = PROJECT_ROOT / "104_area_codes.json"
+DEFAULT_CONFIG_PATH = Path(__file__).parent / "104_config.yaml"
+DEFAULT_AREA_CODES_PATH = Path(__file__).parent / "104_area_codes.json"
 DEFAULT_HEADERS = {
     "Referer": "https://www.104.com.tw/jobs/search/",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
