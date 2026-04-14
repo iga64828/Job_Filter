@@ -1,0 +1,14 @@
+# 複製此檔為 app.yaml 並填入實際值（app.yaml 不會進 git）
+
+resume:
+  folder: "data/resumes"
+
+bigquery:
+  project_id: "your-project-id"
+  dataset_id: "job_data"
+  table_id: "104_processed_jobs"
+  limit: 100
+  cache_ttl: 3600
+
+chat:
+  system_message: "You are a career advisor. You just analyzed a job and generated a cover letter. From now on, assist the user in editing the cover letter or preparing for interview for this job."
