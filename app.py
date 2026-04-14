@@ -8,9 +8,9 @@ import yaml
 from dotenv import load_dotenv
 from google.cloud import bigquery
 
-load_dotenv()
-
 APP_ROOT = Path(__file__).parent
+
+load_dotenv(APP_ROOT / "env" / ".env")
 
 # Add scripts dir to path to import llm_matcher
 sys.path.append(str(APP_ROOT / "scripts"))
@@ -92,8 +92,8 @@ def load_jobs_from_bq(proj, dt, tb, limit):
 
 st.subheader("📋 職缺清單 (From BigQuery)")
 if st.button("🔄 讀取/刷新職缺"):
-    if project_id == "your-project-id":
-        st.warning("請先在左側輸入正確的 GCP Project ID。")
+    if not project_id:
+        st.warning("請先在左側填入 GCP Project ID。")
     else:
         with st.spinner("從 BigQuery 讀取職缺中..."):
             df = load_jobs_from_bq(project_id, dataset_id, table_id, bq_limit)
