@@ -4,4 +4,7 @@
 *.pyc
 __pycache__/
 data/raw/
+data/resumes/
 env/*
+.env
+config/app.yaml
